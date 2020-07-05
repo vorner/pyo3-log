@@ -21,7 +21,7 @@ before_script:
 
 script:
     - |
-      cargo test --all
-      cargo doc --no-deps
-      cargo clippy --all --tests -- --deny clippy::all
+      cargo test --all &&
+      cargo doc --no-deps &&
+      cargo clippy --all --tests -- --deny clippy::all &&
       cargo fmt -- --check
