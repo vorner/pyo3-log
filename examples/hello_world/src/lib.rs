@@ -5,7 +5,6 @@ use pyo3_log::{Caching, Logger};
 
 #[pyfunction]
 #[text_signature = "()"]
-#[no_mangle]
 fn log_hello() {
     trace!("xyz");
     debug!("stuff2");

@@ -1,27 +1,161 @@
 #![forbid(unsafe_code)]
 
+#![doc(
+    html_root_url = "https://docs.rs/pyo3-log/0.1.0/pyo3-log/",
+    test(attr(deny(warnings)))
+)]
+#![warn(missing_docs)]
+
+//! A bridge from Rust to Python logging
+//!
+//! The library can be used to install a [logger][log::Log] into Rust that will send the messages
+//! over to the Python [logging](https://docs.python.org/3/library/logging.html). This can be
+//! useful when writing a native Python extension module in Rust and it is desirable to log from
+//! the Rust side too.
+//!
+//! The library internally depends on the [`pyo3`] crate. This is not exposed through the public
+//! API and it should work from extension modules not using [`pyo3`] directly. It'll nevertheless
+//! still bring the dependency in, so this might be considered if the module doesn't want to use
+//! it.
+//!
+//! # Simple usage
+//!
+//! Each extension module has its own global variables, therefore the used logger is also
+//! independent of other Rust native extensions. Therefore, it is up to each one to set a logger
+//! for itself if it wants one.
+//!
+//! By using [`init`] function from a place that's run only once (maybe from the top-level module
+//! of the extension), the logger is registered and the log messages (eg. [`info`][log::info]) send
+//! their messages over to the Python side.
+//!
+//! ```rust
+//! use log::info;
+//! use pyo3::prelude::*;
+//! use pyo3::wrap_pyfunction;
+//!
+//! #[pyfunction]
+//! fn log_something() {
+//!     info!("Something!");
+//! }
+//!
+//! #[pymodule]
+//! fn my_module(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+//!     pyo3_log::init();
+//!
+//!     m.add_wrapped(wrap_pyfunction!(log_something))?;
+//!     Ok(())
+//! }
+//! ```
+//!
+//! # Performance, Filtering and Caching
+//!
+//! Ideally, the logging system would always consult the Python loggers to know which messages
+//! should or should not be logged. However, one of the reasons of using Rust instead of Python is
+//! performance. Part of that is giving up the GIL in long-running computations to let other
+//! threads run at the same time.
+//!
+//! Therefore, acquiring the GIL and calling into the Python interpreter on each
+//! [`trace`][log::trace] message only to figure out it is not to be logged would be prohibitively
+//! slow. There are two techniques employed here.
+//!
+//! First, level filters are applied before consulting the Python side. By default, only the
+//! [`Debug`][Level::Debug] level and more severe is considered to be sent over to Python. This can
+//! be overridden using the [`filter`][Logger::filter] and [`filter_target`][Logger::filter_target]
+//! methods.
+//!
+//! Second, the Python loggers and their effective log levels are cached on the Rust side on the
+//! first use of the given module. This means that on a disabled level, only the first logging
+//! attempt in the given module will acquire GIL while the future ones will short-circuit before
+//! ever reaching Python.
+//!
+//! This is good for performance, but could lead to the incorrect messages to be logged or not
+//! logged in certain situations ‒ if Rust logs before the Python logging system is set up properly
+//! or when it is reconfigured at runtime.
+//!
+//! For these reasons it is possible to turn caching off on construction of the logger (at the cost
+//! of performance) and to clear the cache manually through the [`ResetHandle`].
+//!
+//! To tune the caching and filtering, the logger needs to be created manually:
+//!
+//! ```rust
+//! # use log::LevelFilter;
+//! # use pyo3::prelude::*;
+//! # use pyo3_log::{Caching, Logger};
+//! #
+//! # fn main() -> PyResult<()> {
+//! # let gil = Python::acquire_gil();
+//! # let py = gil.python();
+//! let handle = Logger::new(py, Caching::LoggersAndLevels)?
+//!     .filter(LevelFilter::Trace)
+//!     .filter_target("my_module::verbose_submodule".to_owned(), LevelFilter::Warn)
+//!     .install()
+//!     .expect("Someone installed a logger before us :-(");
+//!
+//! // Some time in the future when logging changes, reset the caches:
+//! handle.reset();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Mapping
+//!
+//! The logging `target` is mapped into the name of the logger on the Python side, replacing all
+//! `::` occurrences with `.` (both form hierarchy in their respective language).
+//!
+//! Log levels are mapped to the same-named ones. The [`Trace`][Level::Trace] doesn't exist on the
+//! Python side, but is mapped to a level with value 0.
+
 use std::cmp;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use arc_swap::ArcSwap;
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use pyo3::prelude::*;
 
+/// A handle into a [`Logger`], able to reset its caches.
+///
+/// This handle can be used to manipulate a [`Logger`] even after it has been installed. It's main
+/// purpose is to reset the internal caches, for example if the logging settings on the Python side
+/// changed.
 #[derive(Clone, Debug)]
-pub struct ResetHandle(Arc<AtomicBool>);
+pub struct ResetHandle(Arc<ArcSwap<CacheNode>>);
 
 impl ResetHandle {
+    /// Reset the internal logger caches.
+    ///
+    /// This removes all the cached loggers and levels (if there were any). Future logging calls
+    /// may cache them again, using the current Python logging settings.
     pub fn reset(&self) {
-        self.0.store(true, Ordering::Relaxed);
+        // Overwrite whatever is in the cache directly. This must win in case of any collisions
+        // (the caching uses compare_and_swap to let the reset win).
+        self.0.store(Default::default());
     }
 }
 
+/// What the [`Logger`] can cache.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum Caching {
+    /// Disables caching.
+    ///
+    /// Every time a log message passes the filters, the code goes to the Python side to check if
+    /// the message shall be logged.
     Nothing,
+
+    /// Caches the Python `Logger` objects.
+    ///
+    /// The logger objects (which should stay the same during the lifetime of a Python application)
+    /// are cached. However, the log levels are not. This means there's some amount of calling of
+    /// Python code saved during a logging call, but the GIL still needs to be acquired even if the
+    /// message doesn't eventually get output anywhere.
     Loggers,
+
+    /// Caches both the Python `Logger` and their respective effective log levels.
+    ///
+    /// Therefore, once a `Logger` has been cached, it is possible to decide on the Rust side if a
+    /// message would get logged or not. If the message is not to be logged, no Python code is
+    /// called and the GIL doesn't have to be acquired.
     LoggersAndLevels,
 }
 
@@ -60,17 +194,45 @@ impl CacheNode {
     }
 }
 
+/// The `Logger`
+///
+/// The actual `Logger` that can be installed into the Rust side and will send messages over to
+/// Python.
+///
+/// It can be either created directly and then installed, passed to other aggregating log systems,
+/// or the [`init`] or [`try_init`] functions may be used if defaults are good enough.
 #[derive(Clone, Debug)]
 pub struct Logger {
+    /// Filter used as a fallback if none of the `filters` match.
     top_filter: LevelFilter,
+
+    /// Mapping of filters to modules.
+    ///
+    /// The most specific one will be used, falling back to `top_filter` if none matches. Stored as
+    /// full paths, with `::` separaters (eg. before converting them from Rust to Python).
     filters: HashMap<String, LevelFilter>,
+
+    /// The imported Python `logging` module.
     logging: Py<PyModule>,
+
+    /// Caching configuration.
     caching: Caching,
-    cache: ArcSwap<CacheNode>,
-    reset: Arc<AtomicBool>,
+
+    /// The cache with loggers and level filters.
+    ///
+    /// The nodes form a tree ‒ each one potentially holding a cache entry (or not) and might have
+    /// some children.
+    ///
+    /// When updating, the whole path from the root is cloned in a copy-on-write manner and the Arc
+    /// here is switched. In case of collisions (eg. someone already replaced the root since
+    /// starting the update), the update is just thrown away.
+    cache: Arc<ArcSwap<CacheNode>>,
 }
 
 impl Logger {
+    /// Creates a new logger.
+    ///
+    /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
         let logging = py.import("logging")?;
         Ok(Self {
@@ -79,10 +241,13 @@ impl Logger {
             logging: logging.into(),
             caching,
             cache: Default::default(),
-            reset: Arc::new(AtomicBool::new(false)),
         })
     }
 
+    /// Installs this logger as the global one.
+    ///
+    /// When installing, it also sets the corresponding [maximum level][log::set_max_level],
+    /// constructed using the filters in this logger.
     pub fn install(self) -> Result<ResetHandle, SetLoggerError> {
         let handle = self.reset_handle();
         let level = cmp::max(
@@ -93,31 +258,62 @@ impl Logger {
                 .max()
                 .unwrap_or(LevelFilter::Off),
         );
-        log::set_max_level(level);
         log::set_boxed_logger(Box::new(self))?;
+        log::set_max_level(level);
         Ok(handle)
     }
 
+    /// Provides the reset handle of this logger.
+    ///
+    /// Note that installing the logger also returns a reset handle. This function is available if,
+    /// for example, the logger will be passed to some other logging system that connects multiple
+    /// loggers together.
     pub fn reset_handle(&self) -> ResetHandle {
-        ResetHandle(Arc::clone(&self.reset))
+        ResetHandle(Arc::clone(&self.cache))
     }
 
+    /// Configures the default logging filter.
+    ///
+    /// Log messages will be filtered according a filter. If one provided by a
+    /// [`filter_target`][Logger::filter_target] matches, it takes preference. If none matches,
+    /// this one is used.
+    ///
+    /// The default filter if none set is [`Debug`][LevelFilter::Debug].
     pub fn filter(mut self, filter: LevelFilter) -> Self {
         self.top_filter = filter;
         self
     }
 
+    /// Sets a filter for a specific target, overriding the default.
+    ///
+    /// This'll match targets with the same name and all the children in the module hierarchy. In
+    /// case multiple match, the most specific one wins.
+    ///
+    /// With this configuration, modules will log in the following levels:
+    ///
+    /// ```rust
+    /// # use log::LevelFilter;
+    /// # use pyo3_log::Logger;
+    ///
+    /// Logger::default()
+    ///     .filter(LevelFilter::Warn)
+    ///     .filter_target("xy".to_owned(), LevelFilter::Debug)
+    ///     .filter_target("xy::aa".to_owned(), LevelFilter::Trace);
+    /// ```
+    ///
+    /// * `whatever` => `Warn`
+    /// * `xy` => `Debug`
+    /// * `xy::aa` => `Trace`
+    /// * `xy::aabb` => `Debug`
     pub fn filter_target(mut self, target: String, filter: LevelFilter) -> Self {
         self.filters.insert(target, filter);
         self
     }
 
+    /// Finds a node in the cache.
+    ///
+    /// The hierarchy separator is `::`.
     fn lookup(&self, target: &str) -> Option<Arc<CacheNode>> {
-        if self.reset.load(Ordering::Relaxed) {
-            self.cache.store(Default::default());
-            self.reset.compare_and_swap(false, true, Ordering::SeqCst);
-        }
-
         if self.caching == Caching::Nothing {
             return None;
         }
@@ -303,10 +499,18 @@ fn extract_max_level(py: Python<'_>, logger: &PyObject) -> PyResult<LevelFilter>
     Ok(LevelFilter::Off)
 }
 
+/// Installs a default instance of the logger.
+///
+/// In case a logger is already installed, an error is returned. On success, a handle to reset the
+/// internal caches is returned.
+///
+/// The default logger has a filter set to [`Debug`][LevelFilter::Debug] and caching enabled to
+/// [`LoggersAndLevels`][Caching::LoggersAndLevels].
 pub fn try_init() -> Result<ResetHandle, SetLoggerError> {
     Logger::default().install()
 }
 
+/// Similar to [`try_init`], but panics if there's a previous logger already installed.
 pub fn init() -> ResetHandle {
     try_init().unwrap()
 }
