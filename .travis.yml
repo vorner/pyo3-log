@@ -7,6 +7,9 @@ os:
 env:
    - TRAVIS_RUST_VERSION=nightly
    - TRAVIS_RUST_VERSION=stable
+python:
+   - "3.7"
+   - "3.8"
 
 before_script:
     - |
