@@ -1,16 +1,12 @@
 language: rust
 cache: cargo
 os:
-    - windows
-    - linux
-    - osx
-
-jobs:
-  include:
-    - name: Nightly
-      env: TRAVIS_RUST_VERSION=nightly
-    - name: Stable
-      env: TRAVIS_RUST_VERSION=stable
+   - windows
+   - linux
+   - osx
+env:
+   - TRAVIS_RUST_VERSION=nightly
+   - TRAVIS_RUST_VERSION=stable
 
 before_script:
     - |
