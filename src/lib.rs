@@ -3,10 +3,20 @@
 use std::cmp;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use arc_swap::ArcSwap;
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use pyo3::prelude::*;
+
+#[derive(Clone, Debug)]
+pub struct ResetHandle(Arc<AtomicBool>);
+
+impl ResetHandle {
+    pub fn reset(&self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Caching {
@@ -50,7 +60,6 @@ impl CacheNode {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub struct Logger {
     top_filter: LevelFilter,
@@ -58,6 +67,7 @@ pub struct Logger {
     logging: Py<PyModule>,
     caching: Caching,
     cache: ArcSwap<CacheNode>,
+    reset: Arc<AtomicBool>,
 }
 
 impl Logger {
@@ -69,10 +79,12 @@ impl Logger {
             logging: logging.into(),
             caching,
             cache: Default::default(),
+            reset: Arc::new(AtomicBool::new(false)),
         })
     }
 
-    pub fn install(self) -> Result<(), SetLoggerError> {
+    pub fn install(self) -> Result<ResetHandle, SetLoggerError> {
+        let handle = self.reset_handle();
         let level = cmp::max(
             self.top_filter,
             self.filters
@@ -82,7 +94,12 @@ impl Logger {
                 .unwrap_or(LevelFilter::Off),
         );
         log::set_max_level(level);
-        log::set_boxed_logger(Box::new(self))
+        log::set_boxed_logger(Box::new(self))?;
+        Ok(handle)
+    }
+
+    pub fn reset_handle(&self) -> ResetHandle {
+        ResetHandle(Arc::clone(&self.reset))
     }
 
     pub fn filter(mut self, filter: LevelFilter) -> Self {
@@ -96,7 +113,11 @@ impl Logger {
     }
 
     fn lookup(&self, target: &str) -> Option<Arc<CacheNode>> {
-        // TODO: Cache reset support
+        if self.reset.load(Ordering::Relaxed) {
+            self.cache.store(Default::default());
+            self.reset.compare_and_swap(false, true, Ordering::SeqCst);
+        }
+
         if self.caching == Caching::Nothing {
             return None;
         }
@@ -133,7 +154,7 @@ impl Logger {
         };
         dbg!((logger, cached));
         // We need to check for this ourselves. For some reason, the logger.handle does not check
-        // it. And besides, we can save us few python calls if it's turned off.
+        // it. And besides, we can save ourselves few python calls if it's turned off.
         if is_enabled_for(logger, record.level())? {
             let none = py.None();
             // TODO: kv pairs, if enabled as a feature?
@@ -282,12 +303,12 @@ fn extract_max_level(py: Python<'_>, logger: &PyObject) -> PyResult<LevelFilter>
     Ok(LevelFilter::Off)
 }
 
-pub fn try_init() -> Result<(), SetLoggerError> {
+pub fn try_init() -> Result<ResetHandle, SetLoggerError> {
     Logger::default().install()
 }
 
-pub fn init() {
-    let _ = try_init();
+pub fn init() -> ResetHandle {
+    try_init().unwrap()
 }
 
 #[cfg(test)]
