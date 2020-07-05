@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-
 #![doc(
     html_root_url = "https://docs.rs/pyo3-log/0.1.0/pyo3-log/",
     test(attr(deny(warnings)))
@@ -334,9 +333,12 @@ impl Logger {
     ///
     /// Returns a logger to be cached, if any. If it already found a cached logger or if caching is
     /// turned off, returns None.
-    fn log_inner(&self, py: Python<'_>, record: &Record, cache: &Option<Arc<CacheNode>>)
-        -> PyResult<Option<PyObject>>
-    {
+    fn log_inner(
+        &self,
+        py: Python<'_>,
+        record: &Record,
+        cache: &Option<Arc<CacheNode>>,
+    ) -> PyResult<Option<PyObject>> {
         let msg = format!("{}", record.args());
         let log_level = map_level(record.level());
         let target = record.target().replace("::", ".");
@@ -346,7 +348,10 @@ impl Logger {
             .map(|local| &local.logger);
         let (logger, cached) = match cached_logger {
             Some(cached) => (cached.as_ref(py), true),
-            None => (self.logging.as_ref(py).call1("getLogger", (&target,))?, false),
+            None => (
+                self.logging.as_ref(py).call1("getLogger", (&target,))?,
+                false,
+            ),
         };
         dbg!((logger, cached));
         // We need to check for this ourselves. For some reason, the logger.handle does not check
@@ -395,7 +400,8 @@ impl Logger {
     }
 
     fn enabled_inner(&self, metadata: &Metadata, cache: &Option<Arc<CacheNode>>) -> bool {
-        let cache_filter = cache.as_ref()
+        let cache_filter = cache
+            .as_ref()
             .and_then(|node| node.local.as_ref())
             .map(|local| local.filter)
             .unwrap_or_else(LevelFilter::max);
@@ -446,14 +452,15 @@ impl Log for Logger {
                     let filter = match self.caching {
                         Caching::Nothing => unreachable!(),
                         Caching::Loggers => LevelFilter::max(),
-                        Caching::LoggersAndLevels => extract_max_level(py, &logger)
-                            .unwrap_or_else(|e| {
+                        Caching::LoggersAndLevels => {
+                            extract_max_level(py, &logger).unwrap_or_else(|e| {
                                 e.print(py);
                                 LevelFilter::max()
                             })
+                        }
                     };
                     store_to_cache = Some((logger, filter));
-                },
+                }
                 Ok(None) => (),
                 Err(e) => e.print(py),
             }
@@ -461,10 +468,7 @@ impl Log for Logger {
         // Note: no more GIL here. Not needed for storing to cache.
 
         if let Some((logger, filter)) = store_to_cache {
-            let entry = CacheEntry {
-                logger,
-                filter,
-            };
+            let entry = CacheEntry { logger, filter };
             self.store_to_cache(record.target(), entry);
         }
     }
@@ -541,9 +545,18 @@ mod tests {
             .filter_target("hello_world::sub".to_owned(), LevelFilter::Trace);
         assert_eq!(logger.filter_for("hello_world"), LevelFilter::Debug);
         assert_eq!(logger.filter_for("hello_world::sub"), LevelFilter::Trace);
-        assert_eq!(logger.filter_for("hello_world::sub::multi::level"), LevelFilter::Trace);
-        assert_eq!(logger.filter_for("hello_world::another"), LevelFilter::Debug);
-        assert_eq!(logger.filter_for("hello_world::another::level"), LevelFilter::Debug);
+        assert_eq!(
+            logger.filter_for("hello_world::sub::multi::level"),
+            LevelFilter::Trace
+        );
+        assert_eq!(
+            logger.filter_for("hello_world::another"),
+            LevelFilter::Debug
+        );
+        assert_eq!(
+            logger.filter_for("hello_world::another::level"),
+            LevelFilter::Debug
+        );
         assert_eq!(logger.filter_for("other"), LevelFilter::Warn);
     }
 }
