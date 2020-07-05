@@ -1,0 +1,22 @@
+language: rust
+cache: cargo
+rust:
+    - stable
+    - beta
+    - nightly
+os:
+    - windows
+    - linux
+    - osx
+
+before_script:
+    - |
+      (travis_wait rustup component add rustfmt || true) &&
+      (test "$TRAVIS_RUST_VERSION" == 1.26.0 || travis_wait rustup component add clippy || true)
+
+script:
+    - |
+      cargo test --all
+      cargo doc --no-deps
+      cargo clippy --all --tests -- --deny clippy::all
+      cargo fmt -- --check
