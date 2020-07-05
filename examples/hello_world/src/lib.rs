@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, trace, info};
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use pyo3_log::{Caching, Logger};
@@ -7,7 +7,11 @@ use pyo3_log::{Caching, Logger};
 #[text_signature = "()"]
 #[no_mangle]
 fn log_hello() {
+    trace!("xyz");
+    debug!("stuff2");
+    debug!("Stuff");
     info!("Hello {}", "world");
+    info!("Hello 2{}", "world");
 }
 
 #[pymodule]
