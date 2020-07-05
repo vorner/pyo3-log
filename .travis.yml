@@ -1,18 +1,23 @@
 language: rust
 cache: cargo
-rust:
-    - stable
-    - beta
-    - nightly
 os:
     - windows
     - linux
     - osx
 
+jobs:
+  include:
+    - name: Nightly
+      env: TRAVIS_RUST_VERSION=nightly
+    - name: Stable
+      env: TRAVIS_RUST_VERSION=stable
+
 before_script:
     - |
-      (travis_wait rustup component add rustfmt || true) &&
-      (test "$TRAVIS_RUST_VERSION" == 1.26.0 || travis_wait rustup component add clippy || true)
+      curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=$TRAVIS_RUST_VERSION --profile=minimal -y &&
+      export PATH=$PATH:$HOME/.cargo/bin &&
+      travis_wait rustup component add rustfmt &&
+      travis_wait rustup component add clippy
 
 script:
     - |
