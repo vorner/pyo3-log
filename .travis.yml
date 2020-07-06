@@ -1,9 +1,12 @@
 language: python
 cache: cargo
 os:
-   - windows
+   #- windows
    - linux
-   - osx
+   #- osx
+   # Unfortunately, travis doesn't seem to like python on certain platforms.
+   # Still, we don't do anything platform specific, so this should be mostly
+   # fine.
 env:
    - TRAVIS_RUST_VERSION=nightly
    - TRAVIS_RUST_VERSION=beta
