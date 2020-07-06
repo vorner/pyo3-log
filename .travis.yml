@@ -6,6 +6,7 @@ os:
    - osx
 env:
    - TRAVIS_RUST_VERSION=nightly
+   - TRAVIS_RUST_VERSION=beta
    - TRAVIS_RUST_VERSION=stable
 python:
    - "3.7"
@@ -18,7 +19,8 @@ before_script:
       travis_wait rustup component add rustfmt &&
       travis_wait rustup component add clippy &&
       PYTHON_LIB=$(python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))") &&
-      export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$PYTHON_LIB:$HOME/rust/lib"
+      export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$PYTHON_LIB" &&
+      echo $LD_LIBRARY_PATH
 
 script:
     - |
