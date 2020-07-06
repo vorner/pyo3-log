@@ -1,6 +1,6 @@
 # pyo3-log
 
-[![Travis Build Status](https://api.travis-ci.org/vorner/pyo3-log.png?branch=master)](https://travis-ci.org/vorner/pyo3-log)
+[![Travis Build Status](https://api.travis-ci.org/vorner/pyo3-log.png?branch=main)](https://travis-ci.org/vorner/pyo3-log)
 
 A bridge to send Rust's log messages over to Python. Meant to help logging flom
 pyo3 native extensions.
