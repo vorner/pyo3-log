@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 #![doc(
-    html_root_url = "https://docs.rs/pyo3-log/0.1.0/pyo3-log/",
+    html_root_url = "https://docs.rs/pyo3-log/0.1.1/pyo3-log/",
     test(attr(deny(warnings)))
 )]
 #![warn(missing_docs)]
@@ -353,7 +353,6 @@ impl Logger {
                 false,
             ),
         };
-        dbg!((logger, cached));
         // We need to check for this ourselves. For some reason, the logger.handle does not check
         // it. And besides, we can save ourselves few python calls if it's turned off.
         if is_enabled_for(logger, record.level())? {
