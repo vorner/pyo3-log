@@ -17,8 +17,9 @@ python:
 
 before_script:
     - |
-      curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=$TRAVIS_RUST_VERSION --profile=minimal -y &&
+      curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain none --profile=minimal -y &&
       export PATH=$PATH:$HOME/.cargo/bin &&
+      travis_wait rustup toolchain install --allow-downgrade $TRAVIS_RUST_VERSION -c rustfmt,clippy
       travis_wait rustup component add rustfmt &&
       travis_wait rustup component add clippy &&
       PYTHON_LIB=$(python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))") &&
