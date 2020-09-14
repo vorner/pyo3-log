@@ -443,24 +443,22 @@ impl Log for Logger {
 
         let mut store_to_cache = None;
         if self.enabled_inner(record.metadata(), &cache) {
-            Python::with_gil(|py| {
-                match self.log_inner(py, record, &cache) {
-                    Ok(Some(logger)) => {
-                        let filter = match self.caching {
-                            Caching::Nothing => unreachable!(),
-                            Caching::Loggers => LevelFilter::max(),
-                            Caching::LoggersAndLevels => {
-                                extract_max_level(py, &logger).unwrap_or_else(|e| {
-                                    e.print(py);
-                                    LevelFilter::max()
-                                })
-                            }
-                        };
-                        store_to_cache = Some((logger, filter));
-                    }
-                    Ok(None) => (),
-                    Err(e) => e.print(py),
+            Python::with_gil(|py| match self.log_inner(py, record, &cache) {
+                Ok(Some(logger)) => {
+                    let filter = match self.caching {
+                        Caching::Nothing => unreachable!(),
+                        Caching::Loggers => LevelFilter::max(),
+                        Caching::LoggersAndLevels => {
+                            extract_max_level(py, &logger).unwrap_or_else(|e| {
+                                e.print(py);
+                                LevelFilter::max()
+                            })
+                        }
+                    };
+                    store_to_cache = Some((logger, filter));
                 }
+                Ok(None) => (),
+                Err(e) => e.print(py),
             })
         }
         // Note: no more GIL here. Not needed for storing to cache.
