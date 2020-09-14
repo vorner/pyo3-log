@@ -82,8 +82,7 @@
 //! # use pyo3_log::{Caching, Logger};
 //! #
 //! # fn main() -> PyResult<()> {
-//! # let gil = Python::acquire_gil();
-//! # let py = gil.python();
+//! # Python::with_gil(|py| {
 //! let handle = Logger::new(py, Caching::LoggersAndLevels)?
 //!     .filter(LevelFilter::Trace)
 //!     .filter_target("my_module::verbose_submodule".to_owned(), LevelFilter::Warn)
@@ -93,6 +92,7 @@
 //! // Some time in the future when logging changes, reset the caches:
 //! handle.reset();
 //! # Ok(())
+//! # })
 //! # }
 //! ```
 //!
@@ -425,10 +425,9 @@ impl Logger {
 
 impl Default for Logger {
     fn default() -> Self {
-        let gil = Python::acquire_gil();
-        let py = gil.python();
-
-        Self::new(py, Caching::LoggersAndLevels).expect("Failed to initialize python logging")
+        Python::with_gil(|py| {
+            Self::new(py, Caching::LoggersAndLevels).expect("Failed to initialize python logging")
+        })
     }
 }
 
@@ -444,25 +443,25 @@ impl Log for Logger {
 
         let mut store_to_cache = None;
         if self.enabled_inner(record.metadata(), &cache) {
-            let gil = Python::acquire_gil();
-            let py = gil.python();
-            match self.log_inner(py, record, &cache) {
-                Ok(Some(logger)) => {
-                    let filter = match self.caching {
-                        Caching::Nothing => unreachable!(),
-                        Caching::Loggers => LevelFilter::max(),
-                        Caching::LoggersAndLevels => {
-                            extract_max_level(py, &logger).unwrap_or_else(|e| {
-                                e.print(py);
-                                LevelFilter::max()
-                            })
-                        }
-                    };
-                    store_to_cache = Some((logger, filter));
+            Python::with_gil(|py| {
+                match self.log_inner(py, record, &cache) {
+                    Ok(Some(logger)) => {
+                        let filter = match self.caching {
+                            Caching::Nothing => unreachable!(),
+                            Caching::Loggers => LevelFilter::max(),
+                            Caching::LoggersAndLevels => {
+                                extract_max_level(py, &logger).unwrap_or_else(|e| {
+                                    e.print(py);
+                                    LevelFilter::max()
+                                })
+                            }
+                        };
+                        store_to_cache = Some((logger, filter));
+                    }
+                    Ok(None) => (),
+                    Err(e) => e.print(py),
                 }
-                Ok(None) => (),
-                Err(e) => e.print(py),
-            }
+            })
         }
         // Note: no more GIL here. Not needed for storing to cache.
 
