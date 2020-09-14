@@ -1,6 +1,6 @@
 [package]
 name = "pyo3-log"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Michal 'vorner' Vaner <vorner@vorner.cz>"]
 description = "Logging bridge from pyo3 native extension to python"
 documentation = "https://docs.rs/pyo3-log"
