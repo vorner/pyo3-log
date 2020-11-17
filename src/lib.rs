@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 #![doc(
-    html_root_url = "https://docs.rs/pyo3-log/0.2.0/pyo3-log/",
+    html_root_url = "https://docs.rs/pyo3-log/0.2.1/pyo3-log/",
     test(attr(deny(warnings)))
 )]
 #![warn(missing_docs)]
