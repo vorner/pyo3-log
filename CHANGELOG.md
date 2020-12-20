@@ -1,3 +1,7 @@
+# 0.2.2
+
+* Fix of versioning of dependencies.
+
 # 0.2.1
 
 * Internal dependency update (arc-swap on 1.0).
