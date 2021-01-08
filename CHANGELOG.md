@@ -1,3 +1,7 @@
+# 0.3.0
+
+* Upgrade to pyo3 0.13.
+
 # 0.2.2
 
 * Fix of versioning of dependencies.
