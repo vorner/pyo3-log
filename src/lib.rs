@@ -102,7 +102,7 @@
 //! `::` occurrences with `.` (both form hierarchy in their respective language).
 //!
 //! Log levels are mapped to the same-named ones. The [`Trace`][Level::Trace] doesn't exist on the
-//! Python side, but is mapped to a level with value 0.
+//! Python side, but is mapped to a level with value 5.
 
 use std::cmp;
 use std::collections::HashMap;
@@ -478,7 +478,7 @@ fn map_level(level: Level) -> usize {
         Level::Warn => 30,
         Level::Info => 20,
         Level::Debug => 10,
-        Level::Trace => 0,
+        Level::Trace => 5,
     }
 }
 
