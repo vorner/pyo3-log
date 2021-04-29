@@ -1,6 +1,6 @@
 [package]
 name = "pyo3-log"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Michal 'vorner' Vaner <vorner@vorner.cz>"]
 description = "Logging bridge from pyo3 native extension to python"
 documentation = "https://docs.rs/pyo3-log"
@@ -18,3 +18,6 @@ arc-swap = "~1"
 # It's OK to ask for std on log, because pyo3 needs it too.
 log = { version = "~0.4", default-features = false, features = ["std"] }
 pyo3 = { version = "~0.13", default-features = false, features = ["macros"] }
+
+[dev-dependencies]
+pyo3 = { version = "0.13", features = ["auto-initialize"] }

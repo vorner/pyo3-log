@@ -464,7 +464,7 @@ impl Log for Logger {
         // Note: no more GIL here. Not needed for storing to cache.
 
         if let Some((logger, filter)) = store_to_cache {
-            let entry = CacheEntry { logger, filter };
+            let entry = CacheEntry { filter, logger };
             self.store_to_cache(record.target(), entry);
         }
     }
