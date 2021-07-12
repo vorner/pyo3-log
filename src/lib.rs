@@ -349,7 +349,10 @@ impl Logger {
         let (logger, cached) = match cached_logger {
             Some(cached) => (cached.as_ref(py), true),
             None => (
-                self.logging.as_ref(py).getattr( "getLogger")?.call1( (&target,))?,
+                self.logging
+                    .as_ref(py)
+                    .getattr("getLogger")?
+                    .call1((&target,))?,
                 false,
             ),
         };
