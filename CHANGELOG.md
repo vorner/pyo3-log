@@ -1,3 +1,7 @@
+# 0.4.0
+
+* Upgrade to pyo3 0.14.
+
 # 0.3.1
 
 * Don't confuse Trace level with NOTSET in python.
