@@ -1,3 +1,7 @@
+# 0.4.1
+
+* Docs: Point out the need to handle GIL in around threads.
+
 # 0.4.0
 
 * Upgrade to pyo3 0.14.

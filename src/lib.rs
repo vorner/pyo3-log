@@ -103,6 +103,58 @@
 //!
 //! Log levels are mapped to the same-named ones. The [`Trace`][Level::Trace] doesn't exist on the
 //! Python side, but is mapped to a level with value 5.
+//!
+//! # Interaction with Python GIL
+//!
+//! Under the hook, the logging routines call into Python. That means they need to acquire the
+//! Global Interpreter Lock of Python.
+//!
+//! This has several consequences. One of them is the above mentioned performance considerations.
+//!
+//! The other is a risk of deadlocks if threads are used from within the extension code without
+//! releasing the GIL.
+//!
+//! ```rust
+//! use std::thread;
+//! use log::info;
+//! use pyo3::prelude::*;
+//!
+//! #[pyfunction]
+//! fn deadlock() {
+//!     info!("This logs fine");
+//!
+//!     let background_thread = thread::spawn(|| {
+//!         info!("This'll deadlock");
+//!     });
+//!
+//!     background_thread.join().unwrap();
+//! }
+//! # let _ = deadlock;
+//! ```
+//!
+//! The above code will deadlock, because the `info` call in the background thread needs the GIL
+//! that's held by the deadlock function. One needs to give up the GIL to let the other threads
+//! run, something like this:
+//!
+//! ```rust
+//! use std::thread;
+//! use log::info;
+//! use pyo3::prelude::*;
+//!
+//! #[pyfunction]
+//! fn dont_deadlock(py: Python<'_>) {
+//!     info!("This logs fine");
+//!
+//!     py.allow_threads(|| {
+//!         let background_thread = thread::spawn(|| {
+//!             info!("This'll not deadlock");
+//!         });
+//!
+//!         background_thread.join().unwrap();
+//!     });
+//! }
+//! # let _ = dont_deadlock;
+//! ```
 
 use std::cmp;
 use std::collections::HashMap;
