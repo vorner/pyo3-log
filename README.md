@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/vorner/pyo3-log/branch/main/graph/badge.svg?token=3KA3R2D9fV)](https://codecov.io/gh/vorner/pyo3-log)
 [![docs](https://docs.rs/pyo3-log/badge.svg)](https://docs.rs/pyo3-log)
 
-A bridge to send Rust's log messages over to Python. Meant to help logging flom
+A bridge to send Rust's log messages over to Python. Meant to help logging from
 pyo3 native extensions.
 
 Read [the documentation](https://docs.rs/pyo3-log) before using.
