@@ -1,3 +1,7 @@
+# 0.6.0
+
+* Update to pyo3 0.16.
+
 # 0.5.0
 
 * Update to pyo3 0.15.
