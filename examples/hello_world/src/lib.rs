@@ -4,7 +4,6 @@ use pyo3::wrap_pyfunction;
 use pyo3_log::{Caching, Logger};
 
 #[pyfunction]
-#[text_signature = "()"]
 fn log_hello() {
     trace!("xyz");
     debug!("stuff2");
