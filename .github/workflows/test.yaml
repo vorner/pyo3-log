@@ -33,23 +33,21 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust ${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-          default: true
-          profile: minimal
 
       - name: Install Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
 
       - name: Restore cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Build & test
         run: cargo test --all-features
@@ -93,15 +91,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          default: true
-          components: rustfmt
+        uses: dtolnay/rust-toolchain@stable
 
       - run: cargo fmt --all -- --check
 
@@ -110,16 +103,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Restore cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Check links
         run: cargo rustdoc --all-features -- -D warnings
@@ -129,18 +119,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          default: true
-          components: clippy
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Restore cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Run clippy linter
         run: cargo clippy --all --tests -- -D clippy::all -D warnings
@@ -150,31 +135,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          default: true
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Restore cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
+
+      - name: Download cargo-tarpaulin from the GitHub releases
+        run: |
+          mkdir -p "${HOME}/.local/bin"
+          curl -sL https://github.com/xd009642/tarpaulin/releases/download/0.24.0/cargo-tarpaulin-x86_64-unknown-linux-gnu.tar.gz | tar xvz -C "${HOME}/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--all-features --run-types Doctests,Tests'
-          timeout: 120
+        run: cargo tarpaulin --all-features --run-types Doctests,Tests --out Xml
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@239febf655bba88b16ff5dea1d3135ea8663a1f9
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: code-coverage-report
           path: cobertura.xml
