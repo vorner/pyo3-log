@@ -1,3 +1,8 @@
+# 0.8.1
+
+* Don't insist on newest version of pyo3 as a dependency, allow older versions
+  too.
+
 # 0.8.0
 
 * Update to pyo3 0.18.
