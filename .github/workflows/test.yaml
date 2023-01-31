@@ -54,6 +54,40 @@ jobs:
       - name: Build & test
         run: cargo test --all-features
 
+  test-minimal-versions:
+    name: Build with the minimal supported versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          # MSRV as set in Cargo.toml
+          toolchain: 1.48.0
+          default: true
+          profile: minimal
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+          architecture: x64
+
+      - name: Restore cache
+        uses: Swatinem/rust-cache@v1
+
+      - name: Install the minimal versions of dependencies
+        env:
+          # `-Z minimal-versions` is unstable, so we set 
+          # `RUSTC_BOOTSTRAP=1` to be able to use it on stable
+          RUSTC_BOOTSTRAP: "1"
+        run: cargo update -Z minimal-versions
+
+      - name: Build & test
+        run: cargo test --all-features
+
   rustfmt:
     name: Check formatting
     runs-on: ubuntu-latest
