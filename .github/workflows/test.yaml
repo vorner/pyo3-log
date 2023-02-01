@@ -153,7 +153,7 @@ jobs:
         run: cargo tarpaulin --all-features --run-types Doctests,Tests --out Xml
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v3.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
