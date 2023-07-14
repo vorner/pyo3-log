@@ -1,3 +1,5 @@
+# 0.8.3
+
 * LogRecord takes tuple as `args`, provide an empty one and not a `None` (#28).
 
 # 0.8.2
