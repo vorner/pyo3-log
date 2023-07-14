@@ -30,7 +30,6 @@
 //! ```rust
 //! use log::info;
 //! use pyo3::prelude::*;
-//! use pyo3::wrap_pyfunction;
 //!
 //! #[pyfunction]
 //! fn log_something() {
@@ -163,6 +162,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use pyo3::prelude::*;
+use pyo3::types::PyTuple;
 
 /// A handle into a [`Logger`], able to reset its caches.
 ///
@@ -421,8 +421,8 @@ impl Logger {
                     record.file(),
                     record.line().unwrap_or_default(),
                     msg,
-                    &none, // args
-                    &none, // exc_info
+                    PyTuple::empty(py), // args
+                    &none,              // exc_info
                 ),
             )?;
             logger.call_method1("handle", (record,))?;
