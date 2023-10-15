@@ -1,3 +1,7 @@
+# 0.8.4
+
+* Allow pyo3 0.20.
+
 # 0.8.3
 
 * LogRecord takes tuple as `args`, provide an empty one and not a `None` (#28).
