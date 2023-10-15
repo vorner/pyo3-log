@@ -9,7 +9,7 @@ readme = "README.md"
 keywords = ["pyo3", "python", "logging"]
 categories = ["development-tools::debugging"]
 edition = "2018"
-license = "Apache-2.0/MIT"
+license = "Apache-2.0 OR MIT"
 rust-version = "1.48.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
