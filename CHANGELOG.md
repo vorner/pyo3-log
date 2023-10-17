@@ -1,3 +1,8 @@
+# 0.9.0
+
+* Bump lowest allowed version of pyo3 to 0.15 ‒ this prevents linking multiple
+  pyo3 versions together.
+
 # 0.8.4
 
 * Allow pyo3 0.20.
