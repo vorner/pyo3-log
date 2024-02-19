@@ -25,4 +25,4 @@ pyo3 = { version = ">=0.15, <0.21", default-features = false, features = ["auto-
 
 # `pyo3-macros` is lying about the minimal version for its `syn` dependency.
 # Because we're testing with `-Zminimal-versions`, we need to explicitly set it here.
-syn = "~1.0.13"
+syn = "~2.0.49"
