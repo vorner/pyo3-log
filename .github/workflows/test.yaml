@@ -74,7 +74,7 @@ jobs:
           architecture: x64
 
       - name: Restore cache
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Install the minimal versions of dependencies
         env:
