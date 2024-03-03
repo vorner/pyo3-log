@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 #![doc(
     html_root_url = "https://docs.rs/pyo3-log/0.2.1/pyo3-log/",
-    test(attr(deny(warnings)))
+    test(attr(deny(warnings))),
+    test(attr(allow(unknown_lints, non_local_definitions))),
 )]
 #![warn(missing_docs)]
 
