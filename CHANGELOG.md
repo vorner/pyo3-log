@@ -1,3 +1,7 @@
+# 0.10.0
+
+* Update to pyo3 0.21.
+
 # 0.9.0
 
 * Bump lowest allowed version of pyo3 to 0.15 ‒ this prevents linking multiple
