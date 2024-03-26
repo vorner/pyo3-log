@@ -2,7 +2,7 @@
 #![doc(
     html_root_url = "https://docs.rs/pyo3-log/0.2.1/pyo3-log/",
     test(attr(deny(warnings))),
-    test(attr(allow(unknown_lints, non_local_definitions))),
+    test(attr(allow(unknown_lints, non_local_definitions)))
 )]
 #![warn(missing_docs)]
 
@@ -38,7 +38,7 @@
 //! }
 //!
 //! #[pymodule]
-//! fn my_module(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+//! fn my_module(m: Bound<'_, PyModule>) -> PyResult<()> {
 //!     pyo3_log::init();
 //!
 //!     m.add_wrapped(wrap_pyfunction!(log_something))?;
@@ -286,7 +286,7 @@ impl Logger {
     ///
     /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
-        let logging = py.import("logging")?;
+        let logging = py.import_bound("logging")?;
         Ok(Self {
             top_filter: LevelFilter::Debug,
             filters: HashMap::new(),
@@ -400,10 +400,10 @@ impl Logger {
             .and_then(|node| node.local.as_ref())
             .map(|local| &local.logger);
         let (logger, cached) = match cached_logger {
-            Some(cached) => (cached.as_ref(py), true),
+            Some(cached) => (cached.bind(py).clone(), true),
             None => (
                 self.logging
-                    .as_ref(py)
+                    .bind(py)
                     .getattr("getLogger")?
                     .call1((&target,))?,
                 false,
@@ -411,7 +411,7 @@ impl Logger {
         };
         // We need to check for this ourselves. For some reason, the logger.handle does not check
         // it. And besides, we can save ourselves few python calls if it's turned off.
-        if is_enabled_for(logger, record.level())? {
+        if is_enabled_for(&logger, record.level())? {
             let none = py.None();
             // TODO: kv pairs, if enabled as a feature?
             let record = logger.call_method1(
@@ -422,8 +422,8 @@ impl Logger {
                     record.file(),
                     record.line().unwrap_or_default(),
                     msg,
-                    PyTuple::empty(py), // args
-                    &none,              // exc_info
+                    PyTuple::empty_bound(py), // args
+                    &none,                    // exc_info
                 ),
             )?;
             logger.call_method1("handle", (record,))?;
@@ -504,12 +504,11 @@ impl Log for Logger {
                     let filter = match self.caching {
                         Caching::Nothing => unreachable!(),
                         Caching::Loggers => LevelFilter::max(),
-                        Caching::LoggersAndLevels => {
-                            extract_max_level(py, &logger).unwrap_or_else(|e| {
+                        Caching::LoggersAndLevels => extract_max_level(logger.bind(py))
+                            .unwrap_or_else(|e| {
                                 e.print(py);
                                 LevelFilter::max()
-                            })
-                        }
+                            }),
                     };
                     store_to_cache = Some((logger, filter));
                 }
@@ -538,14 +537,13 @@ fn map_level(level: Level) -> usize {
     }
 }
 
-fn is_enabled_for(logger: &PyAny, level: Level) -> PyResult<bool> {
+fn is_enabled_for(logger: &Bound<'_, PyAny>, level: Level) -> PyResult<bool> {
     let level = map_level(level);
-    logger.call_method1("isEnabledFor", (level,))?.is_true()
+    logger.call_method1("isEnabledFor", (level,))?.is_truthy()
 }
 
-fn extract_max_level(py: Python<'_>, logger: &PyObject) -> PyResult<LevelFilter> {
+fn extract_max_level(logger: &Bound<'_, PyAny>) -> PyResult<LevelFilter> {
     use Level::*;
-    let logger = logger.as_ref(py);
     for l in &[Trace, Debug, Info, Warn, Error] {
         if is_enabled_for(logger, *l)? {
             return Ok(l.to_level_filter());
