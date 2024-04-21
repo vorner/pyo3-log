@@ -63,7 +63,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           # MSRV as set in Cargo.toml
-          toolchain: 1.48.0
+          toolchain: 1.56.0
           default: true
           profile: minimal
 
