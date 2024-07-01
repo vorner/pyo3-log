@@ -217,28 +217,45 @@ impl Default for Caching {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct CacheEntry {
     filter: LevelFilter,
     logger: PyObject,
 }
 
-#[derive(Clone, Debug, Default)]
+impl CacheEntry {
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        CacheEntry {
+            filter: self.filter,
+            logger: self.logger.clone_ref(py),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 struct CacheNode {
     local: Option<CacheEntry>,
     children: HashMap<String, Arc<CacheNode>>,
 }
 
 impl CacheNode {
-    fn store_to_cache_recursive<'a, P>(&self, mut path: P, entry: CacheEntry) -> Arc<Self>
+    fn store_to_cache_recursive<'a, P>(
+        &self,
+        py: Python<'_>,
+        mut path: P,
+        entry: CacheEntry,
+    ) -> Arc<Self>
     where
         P: Iterator<Item = &'a str>,
     {
-        let mut me = self.clone();
+        let mut me = CacheNode {
+            children: self.children.clone(),
+            local: self.local.as_ref().map(|e| e.clone_ref(py)),
+        };
         match path.next() {
             Some(segment) => {
                 let child = me.children.entry(segment.to_owned()).or_default();
-                *child = child.store_to_cache_recursive(path, entry);
+                *child = child.store_to_cache_recursive(py, path, entry);
             }
             None => me.local = Some(entry),
         }
@@ -253,7 +270,7 @@ impl CacheNode {
 ///
 /// It can be either created directly and then installed, passed to other aggregating log systems,
 /// or the [`init`] or [`try_init`] functions may be used if defaults are good enough.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Logger {
     /// Filter used as a fallback if none of the `filters` match.
     top_filter: LevelFilter,
@@ -464,12 +481,12 @@ impl Logger {
         metadata.level() <= cache_filter && metadata.level() <= self.filter_for(metadata.target())
     }
 
-    fn store_to_cache(&self, target: &str, entry: CacheEntry) {
+    fn store_to_cache(&self, py: Python<'_>, target: &str, entry: CacheEntry) {
         let path = target.split("::");
 
         let orig = self.cache.load();
         // Construct a new cache structure and insert the new root.
-        let new = orig.store_to_cache_recursive(path, entry);
+        let new = orig.store_to_cache_recursive(py, path, entry);
         // Note: In case of collision, the cache update is lost. This is fine, as we simply lose a
         // tiny bit of performance and will cache the thing next time.
         //
@@ -497,7 +514,6 @@ impl Log for Logger {
     fn log(&self, record: &Record) {
         let cache = self.lookup(record.target());
 
-        let mut store_to_cache = None;
         if self.enabled_inner(record.metadata(), &cache) {
             Python::with_gil(|py| match self.log_inner(py, record, &cache) {
                 Ok(Some(logger)) => {
@@ -510,17 +526,13 @@ impl Log for Logger {
                                 LevelFilter::max()
                             }),
                     };
-                    store_to_cache = Some((logger, filter));
+
+                    let entry = CacheEntry { filter, logger };
+                    self.store_to_cache(py, record.target(), entry);
                 }
                 Ok(None) => (),
                 Err(e) => e.print(py),
             })
-        }
-        // Note: no more GIL here. Not needed for storing to cache.
-
-        if let Some((logger, filter)) = store_to_cache {
-            let entry = CacheEntry { filter, logger };
-            self.store_to_cache(record.target(), entry);
         }
     }
 
