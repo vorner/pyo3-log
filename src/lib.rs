@@ -303,6 +303,8 @@ impl Logger {
     ///
     /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
+        // `import` is only available in >=0.23.
+        #[allow(deprecated)]
         let logging = py.import_bound("logging")?;
         Ok(Self {
             top_filter: LevelFilter::Debug,
@@ -439,6 +441,8 @@ impl Logger {
                     record.file(),
                     record.line().unwrap_or_default(),
                     msg,
+                    // `empty` is only available in >=0.23.
+                    #[allow(deprecated)]
                     PyTuple::empty_bound(py), // args
                     &none,                    // exc_info
                 ),
