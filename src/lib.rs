@@ -440,7 +440,7 @@ impl Logger {
                     record.line().unwrap_or_default(),
                     msg,
                     PyTuple::empty(py), // args
-                    &none,                    // exc_info
+                    &none,              // exc_info
                 ),
             )?;
             logger.call_method1("handle", (record,))?;
