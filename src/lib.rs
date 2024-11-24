@@ -303,7 +303,7 @@ impl Logger {
     ///
     /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
-        let logging = py.import_bound("logging")?;
+        let logging = py.import("logging")?;
         Ok(Self {
             top_filter: LevelFilter::Debug,
             filters: HashMap::new(),
@@ -439,8 +439,8 @@ impl Logger {
                     record.file(),
                     record.line().unwrap_or_default(),
                     msg,
-                    PyTuple::empty_bound(py), // args
-                    &none,                    // exc_info
+                    PyTuple::empty(py), // args
+                    &none,              // exc_info
                 ),
             )?;
             logger.call_method1("handle", (record,))?;
