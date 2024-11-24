@@ -1,7 +1,11 @@
+# 0.12.0
+
+* Update to pyo3 0.23, drop older version support.
+
 # 0.11.0
 
 * Update to pyo3 0.22.
-* `Logger` not longer implements `Clone`
+* `Logger` no longer implements `Clone`
 
 # 0.10.0
 
