@@ -515,7 +515,10 @@ impl Log for Logger {
         let cache = self.lookup(record.target());
 
         if self.enabled_inner(record.metadata(), &cache) {
-            Python::with_gil(|py| match self.log_inner(py, record, &cache) {
+            Python::with_gil(|py| {
+                let maybe_existing_exception = PyErr::take(py);
+                match self.log_inner(py, record, &cache) {
+
                 Ok(Some(logger)) => {
                     let filter = match self.caching {
                         Caching::Nothing => unreachable!(),
@@ -531,8 +534,16 @@ impl Log for Logger {
                     self.store_to_cache(py, record.target(), entry);
                 }
                 Ok(None) => (),
-                Err(e) => e.print(py),
-            })
+                Err(e) => {
+                    e.print(py);
+                    e.restore(py);
+                },
+            };
+
+            if let Some(old_exception) = maybe_existing_exception {
+                old_exception.restore(py);
+            }
+        })
         }
     }
 
