@@ -1,3 +1,7 @@
+# 0.12.1
+
+* Pass-through exceptions (#57)
+
 # 0.12.0
 
 * Update to pyo3 0.23, drop older version support.
