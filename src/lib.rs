@@ -515,23 +515,39 @@ impl Log for Logger {
         let cache = self.lookup(record.target());
 
         if self.enabled_inner(record.metadata(), &cache) {
-            Python::with_gil(|py| match self.log_inner(py, record, &cache) {
-                Ok(Some(logger)) => {
-                    let filter = match self.caching {
-                        Caching::Nothing => unreachable!(),
-                        Caching::Loggers => LevelFilter::max(),
-                        Caching::LoggersAndLevels => extract_max_level(logger.bind(py))
-                            .unwrap_or_else(|e| {
-                                e.print(py);
-                                LevelFilter::max()
-                            }),
-                    };
+            Python::with_gil(|py| {
+                // If an exception were triggered before this attempt to log,
+                // store it to the side for now and restore it afterwards.
+                let maybe_existing_exception = PyErr::take(py);
+                match self.log_inner(py, record, &cache) {
+                    Ok(Some(logger)) => {
+                        let filter = match self.caching {
+                            Caching::Nothing => unreachable!(),
+                            Caching::Loggers => LevelFilter::max(),
+                            Caching::LoggersAndLevels => extract_max_level(logger.bind(py))
+                                .unwrap_or_else(|e| {
+                                    // See detailed NOTE below
+                                    e.restore(py);
+                                    LevelFilter::max()
+                                }),
+                        };
 
-                    let entry = CacheEntry { filter, logger };
-                    self.store_to_cache(py, record.target(), entry);
+                        let entry = CacheEntry { filter, logger };
+                        self.store_to_cache(py, record.target(), entry);
+                    }
+                    Ok(None) => (),
+                    Err(e) => {
+                        // NOTE: If an exception was triggered _during_ logging, restore it as current Python exception.
+                        // We have to use PyErr::restore because we cannot return a PyResult from the Log trait's log method.
+                        e.restore(py);
+                    }
+                };
+
+                // If there was a prior exception, restore it now
+                // This ensures that the earliest thrown exception will be the one that's visible to the caller.
+                if let Some(e) = maybe_existing_exception {
+                    e.restore(py);
                 }
-                Ok(None) => (),
-                Err(e) => e.print(py),
             })
         }
     }
