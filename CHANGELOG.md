@@ -1,3 +1,7 @@
+# 0.13.0
+
+* Update to pyo3 0.24.
+
 # 0.12.1
 
 * Pass-through exceptions (#57)
