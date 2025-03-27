@@ -46,6 +46,32 @@
 //! }
 //! ```
 //!
+//! The following example is how this would be performed with the new declarative inline module syntax
+//! introduced in PyO3 0.23 and above.
+//!
+//! ```rust
+//! # mod test_declarative_example {
+//! use pyo3::prelude::*;
+//! use log::info;
+//!
+//! #[pymodule]
+//! mod my_module{
+//!     use super::*;
+//!    
+//!    #[pymodule_init]
+//!     fn init(_m: &Bound<'_, PyModule>) -> PyResult<()> {
+//!         pyo3_log::init();
+//!         Ok(())
+//!     }
+//!  
+//!     #[pyfunction]
+//!     fn log_something() {
+//!         info!("Something!");
+//!     }
+//! }
+//! # }
+//! ```
+//!
 //! # Performance, Filtering and Caching
 //!
 //! Ideally, the logging system would always consult the Python loggers to know which messages
