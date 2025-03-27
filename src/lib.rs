@@ -45,27 +45,31 @@
 //!     Ok(())
 //! }
 //! ```
-//! 
-//! The following example is how this would be performed with the new declarative inline module syntax 
+//!
+//! The following example is how this would be performed with the new declarative inline module syntax
 //! introduced in PyO3 0.23 and above.
-//! 
+//!
 //! ```rust
-//! use log::info;
+//! # mod test_declarative_example {
 //! use pyo3::prelude::*;
+//! use log::info;
 //!
 //! #[pymodule]
 //! mod my_module{
+//!     use super::*;
+//!    
+//!    #[pymodule_init]
+//!     fn init(_m: &Bound<'_, PyModule>) -> PyResult<()> {
+//!         pyo3_log::init();
+//!         Ok(())
+//!     }
+//!  
 //!     #[pyfunction]
 //!     fn log_something() {
 //!         info!("Something!");
 //!     }
-//! 
-//!     #[pymodule_init]
-//!    fn init(_m: &Bound<'_, PyModule>) -> PyResult<()> {
-//!         pyo3_log::init();
-//!         Ok(())
-//!     }
 //! }
+//! # }
 //! ```
 //!
 //! # Performance, Filtering and Caching
