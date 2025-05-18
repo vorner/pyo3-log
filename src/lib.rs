@@ -214,6 +214,7 @@ impl ResetHandle {
 /// What the [`Logger`] can cache.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[derive(Default)]
 pub enum Caching {
     /// Disables caching.
     ///
@@ -234,13 +235,8 @@ pub enum Caching {
     /// Therefore, once a `Logger` has been cached, it is possible to decide on the Rust side if a
     /// message would get logged or not. If the message is not to be logged, no Python code is
     /// called and the GIL doesn't have to be acquired.
+    #[default]
     LoggersAndLevels,
-}
-
-impl Default for Caching {
-    fn default() -> Self {
-        Caching::LoggersAndLevels
-    }
 }
 
 #[derive(Debug)]

@@ -23,11 +23,12 @@ jobs:
           - beta
           - nightly
         python-version:
-          - "3.7"
           - "3.8"
           - "3.9"
           - "3.10"
           - "3.11"
+          - "3.12"
+          - "3.13"
 
     runs-on: ${{ matrix.os }}
 
@@ -44,7 +45,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          architecture: x64
 
       - name: Restore cache
         uses: Swatinem/rust-cache@v2
@@ -60,18 +60,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          # MSRV as set in Cargo.toml
-          toolchain: 1.56.0
-          default: true
-          profile: minimal
+          toolchain: "1.63"
 
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.7"
-          architecture: x64
+          python-version: "3.13"
 
       - name: Restore cache
         uses: Swatinem/rust-cache@v2
