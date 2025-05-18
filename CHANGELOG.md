@@ -1,3 +1,6 @@
+# 0.12.4
+
+* Allow pyo3 0.25.
 # 0.12.3
 
 * Declarative example (docs, #59).
