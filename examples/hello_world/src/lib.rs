@@ -13,7 +13,7 @@ fn log_hello() {
 }
 
 #[pymodule]
-fn hello_world(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn hello_world(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     let _ = Logger::new(py, Caching::LoggersAndLevels)?
         .install();
 
