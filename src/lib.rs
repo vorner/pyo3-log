@@ -57,13 +57,13 @@
 //! #[pymodule]
 //! mod my_module{
 //!     use super::*;
-//!    
+//!
 //!    #[pymodule_init]
 //!     fn init(_m: &Bound<'_, PyModule>) -> PyResult<()> {
 //!         pyo3_log::init();
 //!         Ok(())
 //!     }
-//!  
+//!
 //!     #[pyfunction]
 //!     fn log_something() {
 //!         info!("Something!");
@@ -108,7 +108,7 @@
 //! # use pyo3_log::{Caching, Logger};
 //! #
 //! # fn main() -> PyResult<()> {
-//! # Python::with_gil(|py| {
+//! # Python::attach(|py| {
 //! let handle = Logger::new(py, Caching::LoggersAndLevels)?
 //!     .filter(LevelFilter::Trace)
 //!     .filter_target("my_module::verbose_submodule".to_owned(), LevelFilter::Warn)
@@ -171,7 +171,7 @@
 //! fn dont_deadlock(py: Python<'_>) {
 //!     info!("This logs fine");
 //!
-//!     py.allow_threads(|| {
+//!     py.detach(|| {
 //!         let background_thread = thread::spawn(|| {
 //!             info!("This'll not deadlock");
 //!         });
@@ -242,7 +242,7 @@ pub enum Caching {
 #[derive(Debug)]
 struct CacheEntry {
     filter: LevelFilter,
-    logger: PyObject,
+    logger: Py<PyAny>,
 }
 
 impl CacheEntry {
@@ -430,7 +430,7 @@ impl Logger {
         py: Python<'_>,
         record: &Record,
         cache: &Option<Arc<CacheNode>>,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         let msg = format!("{}", record.args());
         let log_level = map_level(record.level());
         let target = record.target().replace("::", ".");
@@ -520,7 +520,7 @@ impl Logger {
 
 impl Default for Logger {
     fn default() -> Self {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             Self::new(py, Caching::LoggersAndLevels).expect("Failed to initialize python logging")
         })
     }
@@ -537,7 +537,7 @@ impl Log for Logger {
         let cache = self.lookup(record.target());
 
         if self.enabled_inner(record.metadata(), &cache) {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 // If an exception were triggered before this attempt to log,
                 // store it to the side for now and restore it afterwards.
                 let maybe_existing_exception = PyErr::take(py);
