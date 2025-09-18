@@ -11,6 +11,6 @@ name = "hello_world"
 crate-type = ["cdylib"]
 
 [dependencies]
-log = "~0.4"
+log = { version = "~0.4", features = ["kv"] }
 pyo3 = { version = "~0.26", features = ["extension-module"] }
-pyo3-log = { path = "../.." }
+pyo3-log = { path = "../..", features = ["kv"] }
