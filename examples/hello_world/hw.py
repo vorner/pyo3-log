@@ -7,4 +7,5 @@ FORMAT = '%(levelname)s %(name)s %(asctime)-15s %(filename)s:%(lineno)d %(messag
 logging.basicConfig(format=FORMAT)
 logging.getLogger().setLevel(logging.INFO)
 logging.info("Test 1")
+hello_world.enable_logging()
 hello_world.log_hello()
