@@ -409,7 +409,7 @@ impl Logger {
     ///
     /// This allows for Python-side arrangements where logging configurations are only
     /// attached to logging names other than the root.
-    pub fn prefix(mut self, prefix: &str) -> Self {
+    pub fn set_prefix(mut self, prefix: &str) -> Self {
         self.prefix = Some(prefix.replace("::", "."));
         self
     }
