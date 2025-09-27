@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust ${{ matrix.rust }}
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
         with:
           toolchain: ${{ matrix.rust }}
 
@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
         with:
           toolchain: "1.74"
 
@@ -90,7 +90,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
+        with:
+          components: rustfmt
+          toolchain: stable
 
       - run: cargo fmt --all -- --check
 
@@ -102,7 +105,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
+        with:
+          toolchain: stable
 
       - name: Restore cache
         uses: Swatinem/rust-cache@v2
@@ -118,7 +123,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
+        with:
+          components: clippy
+          toolchain: stable
 
       - name: Restore cache
         uses: Swatinem/rust-cache@v2
@@ -134,7 +142,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921
+        with:
+          toolchain: stable
 
       - name: Restore cache
         uses: Swatinem/rust-cache@v2
