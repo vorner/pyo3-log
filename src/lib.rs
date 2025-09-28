@@ -452,7 +452,42 @@ impl Logger {
         // it. And besides, we can save ourselves few python calls if it's turned off.
         if is_enabled_for(&logger, record.level())? {
             let none = py.None();
-            // TODO: kv pairs, if enabled as a feature?
+
+            #[allow(unused_mut)]
+            let mut extra = py.None().into_bound(py);
+
+            #[cfg(feature = "kv")]
+            if record.key_values().count() > 0 {
+                // write structured data to 'extra', serializing the values
+                use log::kv::{Key, Value, VisitSource};
+                use pyo3::types::{PyDict, PyString};
+
+                struct PyDictVisitor<'p> {
+                    dict: Bound<'p, PyDict>,
+                }
+
+                impl<'kvs, 'p> VisitSource<'kvs> for PyDictVisitor<'p> {
+                    fn visit_pair(
+                        &mut self,
+                        key: Key<'kvs>,
+                        value: Value<'kvs>,
+                    ) -> Result<(), log::kv::Error> {
+                        let py_key = PyString::new(self.dict.py(), key.as_str());
+                        let py_value = PyString::new(self.dict.py(), &value.to_string());
+
+                        let _ = self.dict.set_item(py_key, py_value);
+                        Ok(())
+                    }
+                }
+
+                let mut visitor = PyDictVisitor {
+                    dict: PyDict::new(py),
+                };
+                let _ = record.key_values().visit(&mut visitor);
+
+                extra = visitor.dict.into_any();
+            }
+
             let record = logger.call_method1(
                 "makeRecord",
                 (
@@ -463,8 +498,11 @@ impl Logger {
                     msg,
                     PyTuple::empty(py), // args
                     &none,              // exc_info
+                    &none,              // func
+                    extra,              // extra
                 ),
             )?;
+
             logger.call_method1("handle", (record,))?;
         }
 
