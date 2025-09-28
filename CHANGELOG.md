@@ -1,3 +1,5 @@
+* Support the kv feature (#69).
+
 # 0.13.0
 
 * Switch to pyo3 0.26 (and drop support for older versions, #66).
