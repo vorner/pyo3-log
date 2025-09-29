@@ -1,4 +1,4 @@
-use log::{debug, trace, info};
+use log::{debug, info, trace};
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use pyo3_log::{Caching, Logger};
@@ -10,6 +10,7 @@ fn log_hello() {
     debug!("Stuff");
     info!("Hello {}", "world");
     info!("Hello 2{}", "world");
+    info!(test = 5; "Hello world with KV");
 }
 
 #[pymodule]
