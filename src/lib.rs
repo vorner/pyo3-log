@@ -449,7 +449,7 @@ impl Logger {
         let mut target = record.target().replace("::", ".");
         target = match &self.prefix {
             Some(prefix) => format!("{}.{}", prefix, target),
-            None => target
+            None => target,
         };
         let cached_logger = cache
             .as_ref()
