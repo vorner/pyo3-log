@@ -303,6 +303,9 @@ pub struct Logger {
     /// full paths, with `::` separaters (eg. before converting them from Rust to Python).
     filters: HashMap<String, LevelFilter>,
 
+    /// The prefix to prepend to all log targets
+    prefix: Option<String>,
+
     /// The imported Python `logging` module.
     logging: Py<PyModule>,
 
@@ -329,6 +332,7 @@ impl Logger {
         Ok(Self {
             top_filter: LevelFilter::Debug,
             filters: HashMap::new(),
+            prefix: None,
             logging: logging.into(),
             caching,
             cache: Default::default(),
@@ -401,6 +405,15 @@ impl Logger {
         self
     }
 
+    /// Sets a prefix to prepend to log targets before sending log messages to Python.
+    ///
+    /// This allows for Python-side arrangements where logging configurations are only
+    /// attached to logging names other than the root.
+    pub fn set_prefix(mut self, prefix: &str) -> Self {
+        self.prefix = Some(prefix.replace("::", "."));
+        self
+    }
+
     /// Finds a node in the cache.
     ///
     /// The hierarchy separator is `::`.
@@ -433,7 +446,11 @@ impl Logger {
     ) -> PyResult<Option<Py<PyAny>>> {
         let msg = format!("{}", record.args());
         let log_level = map_level(record.level());
-        let target = record.target().replace("::", ".");
+        let mut target = record.target().replace("::", ".");
+        target = match &self.prefix {
+            Some(prefix) => format!("{}.{}", prefix, target),
+            None => target,
+        };
         let cached_logger = cache
             .as_ref()
             .and_then(|node| node.local.as_ref())

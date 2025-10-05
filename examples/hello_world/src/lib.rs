@@ -15,7 +15,9 @@ fn log_hello() {
 
 #[pymodule]
 fn hello_world(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let _ = Logger::new(py, Caching::LoggersAndLevels)?.install();
+    let _ = Logger::new(py, Caching::LoggersAndLevels)?
+        .set_prefix("test_prefix")
+        .install();
 
     m.add_wrapped(wrap_pyfunction!(log_hello))?;
 
