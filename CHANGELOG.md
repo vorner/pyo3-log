@@ -1,3 +1,6 @@
+# 0.13.1
+
+* Allow specifying a logger prefix (#70). 
 * Support the kv feature (#69).
 
 # 0.13.0
