@@ -21,10 +21,10 @@ kv = ["log/kv"]
 arc-swap = "~1"
 # It's OK to ask for std on log, because pyo3 needs it too.
 log = { version = "~0.4.21", default-features = false, features = ["std"] }
-pyo3 = { version = "0.26", default-features = false }
+pyo3 = { version = ">=0.26,<0.28", default-features = false }
 
 [dev-dependencies]
-pyo3 = { version = "0.26", default-features = false, features = [
+pyo3 = { version = ">=0.26,<0.28", default-features = false, features = [
     "auto-initialize",
     "macros",
 ] }
