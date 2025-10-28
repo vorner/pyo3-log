@@ -1,3 +1,7 @@
+# 0.13.2
+
+* Support for pyo3 0.27 (#72).
+
 # 0.13.1
 
 * Allow specifying a logger prefix (#70). 
