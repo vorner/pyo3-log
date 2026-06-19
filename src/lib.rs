@@ -1,4 +1,5 @@
-#![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "dangerous-shutdown-guard"), forbid(unsafe_code))]
+#![cfg_attr(feature = "dangerous-shutdown-guard", deny(unsafe_code))]
 #![doc(
     html_root_url = "https://docs.rs/pyo3-log/0.2.1/pyo3-log/",
     test(attr(deny(warnings))),
@@ -184,12 +185,64 @@
 
 use std::cmp;
 use std::collections::HashMap;
+#[cfg(feature = "dangerous-shutdown-guard")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+
+/// Set once the Python interpreter starts shutting down.
+///
+/// Once the interpreter begins finalization, calling into it is no longer safe ‒ doing so can lead
+/// to crashes or hangs. We register an [`atexit`](https://docs.python.org/3/library/atexit.html)
+/// hook that flips this flag so we can stop forwarding log messages in time.
+#[cfg(feature = "dangerous-shutdown-guard")]
+static PYTHON_FINALIZING: AtomicBool = AtomicBool::new(false);
+
+/// The atexit hook. Marks the interpreter as on its way out.
+#[cfg(feature = "dangerous-shutdown-guard")]
+#[pyfunction]
+fn pyo3_log_atexit() {
+    PYTHON_FINALIZING.store(true, Ordering::SeqCst);
+}
+
+/// Registers the [`pyo3_log_atexit`] hook, idempotently.
+///
+/// Multiple loggers (or repeated construction) would otherwise register the hook more than once.
+/// The flag here keeps it to a single registration per process.
+#[cfg(feature = "dangerous-shutdown-guard")]
+fn register_atexit(py: Python<'_>) -> PyResult<()> {
+    static REGISTERED: AtomicBool = AtomicBool::new(false);
+    if REGISTERED.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+
+    let atexit = py.import("atexit")?;
+    let hook = wrap_pyfunction!(pyo3_log_atexit, py)?;
+    atexit.call_method1("register", (hook,))?;
+    Ok(())
+}
+
+/// Checks whether it is safe to call into the Python interpreter.
+///
+/// Returns `false` if either the interpreter is not initialized (according to the
+/// [`Py_IsInitialized`][pyo3::ffi::Py_IsInitialized] FFI call) or our atexit hook has fired,
+/// signalling that finalization has begun. In either case, calling into Python is unsafe and the
+/// log message must be dropped.
+#[cfg(feature = "dangerous-shutdown-guard")]
+fn interpreter_usable() -> bool {
+    if PYTHON_FINALIZING.load(Ordering::SeqCst) {
+        return false;
+    }
+    #[allow(unsafe_code)]
+    // SAFETY: Py_IsInitialized is safe to call at any time, including before initialization and
+    // after finalization. It only reads an interpreter status flag and takes no arguments.
+    let initialized = unsafe { pyo3::ffi::Py_IsInitialized() } != 0;
+    initialized
+}
 
 /// A handle into a [`Logger`], able to reset its caches.
 ///
@@ -329,6 +382,8 @@ impl Logger {
     /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
         let logging = py.import("logging")?;
+        #[cfg(feature = "dangerous-shutdown-guard")]
+        register_atexit(py)?;
         Ok(Self {
             top_filter: LevelFilter::Debug,
             filters: HashMap::new(),
@@ -591,7 +646,15 @@ impl Log for Logger {
     fn log(&self, record: &Record) {
         let cache = self.lookup(record.target());
 
-        if self.enabled_inner(record.metadata(), &cache) {
+        // Before calling into Python, make sure the interpreter is actually usable. If it isn't
+        // initialized yet or has started finalizing, calling into it would crash or hang, so we
+        // silently drop the message instead. (Only checked with the `dangerous-shutdown-guard` feature.)
+        #[cfg(feature = "dangerous-shutdown-guard")]
+        let usable = interpreter_usable();
+        #[cfg(not(feature = "dangerous-shutdown-guard"))]
+        let usable = true;
+
+        if self.enabled_inner(record.metadata(), &cache) && usable {
             Python::attach(|py| {
                 // If an exception were triggered before this attempt to log,
                 // store it to the side for now and restore it afterwards.

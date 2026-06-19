@@ -16,6 +16,12 @@ rust-version = "1.74"
 
 [features]
 kv = ["log/kv"]
+# Best-effort guard against logging into a Python interpreter that is shutting down. Checks
+# Py_IsInitialized and an atexit hook before each log call. This is racy (the interpreter can
+# start finalizing between the check and the call) and only reduces, not eliminates, the chance
+# of a crash or hang during shutdown -- hence "dangerous". Pulls in pyo3's `macros` feature for
+# the atexit hook.
+dangerous-shutdown-guard = ["pyo3/macros"]
 
 [dependencies]
 arc-swap = "~1"
