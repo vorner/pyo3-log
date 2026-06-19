@@ -16,14 +16,15 @@ rust-version = "1.74"
 
 [features]
 kv = ["log/kv"]
+# Verify the Python interpreter is alive (initialized, not finalizing) before logging into it.
+# Pulls in pyo3's `macros` feature for the atexit hook.
+interpreter-state = ["pyo3/macros"]
 
 [dependencies]
 arc-swap = "~1"
 # It's OK to ask for std on log, because pyo3 needs it too.
 log = { version = "~0.4.21", default-features = false, features = ["std"] }
-pyo3 = { version = ">=0.26,<0.30", default-features = false, features = [
-    "macros",
-] }
+pyo3 = { version = ">=0.26,<0.30", default-features = false }
 
 [dev-dependencies]
 pyo3 = { version = ">=0.26,<0.30", default-features = false, features = [

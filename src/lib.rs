@@ -1,4 +1,5 @@
-#![deny(unsafe_code)]
+#![cfg_attr(not(feature = "interpreter-state"), forbid(unsafe_code))]
+#![cfg_attr(feature = "interpreter-state", deny(unsafe_code))]
 #![doc(
     html_root_url = "https://docs.rs/pyo3-log/0.2.1/pyo3-log/",
     test(attr(deny(warnings))),
@@ -184,6 +185,7 @@
 
 use std::cmp;
 use std::collections::HashMap;
+#[cfg(feature = "interpreter-state")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -197,9 +199,11 @@ use pyo3::types::PyTuple;
 /// Once the interpreter begins finalization, calling into it is no longer safe ‒ doing so can lead
 /// to crashes or hangs. We register an [`atexit`](https://docs.python.org/3/library/atexit.html)
 /// hook that flips this flag so we can stop forwarding log messages in time.
+#[cfg(feature = "interpreter-state")]
 static PYTHON_FINALIZING: AtomicBool = AtomicBool::new(false);
 
 /// The atexit hook. Marks the interpreter as on its way out.
+#[cfg(feature = "interpreter-state")]
 #[pyfunction]
 fn pyo3_log_atexit() {
     PYTHON_FINALIZING.store(true, Ordering::SeqCst);
@@ -209,6 +213,7 @@ fn pyo3_log_atexit() {
 ///
 /// Multiple loggers (or repeated construction) would otherwise register the hook more than once.
 /// The flag here keeps it to a single registration per process.
+#[cfg(feature = "interpreter-state")]
 fn register_atexit(py: Python<'_>) -> PyResult<()> {
     static REGISTERED: AtomicBool = AtomicBool::new(false);
     if REGISTERED.swap(true, Ordering::SeqCst) {
@@ -227,6 +232,7 @@ fn register_atexit(py: Python<'_>) -> PyResult<()> {
 /// [`Py_IsInitialized`][pyo3::ffi::Py_IsInitialized] FFI call) or our atexit hook has fired,
 /// signalling that finalization has begun. In either case, calling into Python is unsafe and the
 /// log message must be dropped.
+#[cfg(feature = "interpreter-state")]
 fn interpreter_usable() -> bool {
     if PYTHON_FINALIZING.load(Ordering::SeqCst) {
         return false;
@@ -376,6 +382,7 @@ impl Logger {
     /// It defaults to having a filter for [`Debug`][LevelFilter::Debug].
     pub fn new(py: Python<'_>, caching: Caching) -> PyResult<Self> {
         let logging = py.import("logging")?;
+        #[cfg(feature = "interpreter-state")]
         register_atexit(py)?;
         Ok(Self {
             top_filter: LevelFilter::Debug,
@@ -641,8 +648,13 @@ impl Log for Logger {
 
         // Before calling into Python, make sure the interpreter is actually usable. If it isn't
         // initialized yet or has started finalizing, calling into it would crash or hang, so we
-        // silently drop the message instead.
-        if self.enabled_inner(record.metadata(), &cache) && interpreter_usable() {
+        // silently drop the message instead. (Only checked with the `interpreter-state` feature.)
+        #[cfg(feature = "interpreter-state")]
+        let usable = interpreter_usable();
+        #[cfg(not(feature = "interpreter-state"))]
+        let usable = true;
+
+        if self.enabled_inner(record.metadata(), &cache) && usable {
             Python::attach(|py| {
                 // If an exception were triggered before this attempt to log,
                 // store it to the side for now and restore it afterwards.
