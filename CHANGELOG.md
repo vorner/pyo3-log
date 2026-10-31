@@ -1,3 +1,7 @@
+# 0.13.5
+
+* Support for pyo3 0.30 (#79, #81).
+
 # 0.13.4
 
 * Support for pyo3 0.29 (#77).
