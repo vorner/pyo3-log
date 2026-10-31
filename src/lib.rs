@@ -425,8 +425,7 @@ impl Logger {
         let root = self.cache.load();
         let mut node: &Arc<CacheNode> = &root;
         for segment in target.split("::") {
-            let sub = node.children.get(segment)?;
-            node = sub
+            node = node.children.get(segment)?;
         }
 
         Some(Arc::clone(node))
